@@ -177,3 +177,29 @@ En este caso, al menos una de las métricas evaluadas presenta un valor degradad
 Cuando no hay tráfico uplink activo, la xApp puede clasificar el enlace como `MALO` debido al bajo throughput. Este caso no necesariamente representa una degradación real del enlace, sino una situación en la que no hay tráfico suficiente para evaluar correctamente la transmisión.
 
 ![Salida en consola sin tráfico uplink](images/salida_sin_trafico.png)
+## Configuración del canal RFS
+
+Para realizar pruebas con el canal RFS, el nivel de ruido del canal se modifica desde los archivos de configuración del UE y del gNB. Es importante cambiar el valor en ambos archivos, ya que los dos componentes incluyen una definición del canal.
+
+Los archivos a modificar son:
+
+```bash
+User_Equipment/configs/channelmod_rfsimu_LEO_satellite.conf
+Next_Generation_Node_B/configs/channelmod_rfsimu_LEO_satellite.conf
+```
+
+Dentro de ambos archivos se debe modificar el parámetro:
+
+```bash
+noise_power_dB = -100;
+```
+
+El valor de `noise_power_dB` permite configurar el nivel de ruido del canal. En las pruebas realizadas se utilizaron distintos valores para representar condiciones favorables, intermedias y degradadas del enlace.
+
+| Escenario | Valor configurado | Condición evaluada |
+|---|---:|---|
+| Canal RFS favorable | `noise_power_dB = -100;` | Enlace con bajo nivel de ruido. |
+| Canal RFS intermedio | `noise_power_dB = -50;` | Enlace con condición intermedia. |
+| Canal RFS degradado | `noise_power_dB = -5;` | Enlace degradado por mayor nivel de ruido. |
+
+Luego de modificar el valor, se deben guardar los cambios y volver a ejecutar el entorno para que la nueva configuración sea tomada por el UE y el gNB.
