@@ -1,0 +1,163 @@
+diff --git a/examples/xApp/c/monitor/xapp_kpm_moni.c b/examples/xApp/c/monitor/xapp_kpm_moni.c
+index d9f11118..06164b83 100644
+--- a/examples/xApp/c/monitor/xapp_kpm_moni.c
++++ b/examples/xApp/c/monitor/xapp_kpm_moni.c
+@@ -19,6 +19,10 @@
+  *      contact@openairinterface.org
+  */
+ 
++// Archivo modificado en el marco del proyecto para incorporar
++// monitoreo y clasificación de la calidad del canal por UE.
++//estudiantes de facultad de ingenieria udelar
++
+ #include "../../../../src/xApp/e42_xapp_api.h"
+ #include "../../../../src/util/alg_ds/alg/defer.h"
+ #include "../../../../src/util/time_now_us.h"
+@@ -31,9 +35,19 @@
+ #include <unistd.h>
+ #include <signal.h>
+ #include <pthread.h>
+-
++#include <string.h>
+ static
+ uint64_t const period_ms = 1000;
++// Variables agregadas para almacenar temporalmente las métricas UL
++static double g_ul_thp_kbps = 0.0;
++static double g_ul_snr_db = 0.0;
++static double g_ul_bler_pct = 0.0;
++static uint32_t g_ul_mcs = 0;
++
++static int g_has_ul_thp = 0;
++static int g_has_ul_snr = 0;
++static int g_has_ul_bler = 0;
++static int g_has_ul_mcs = 0;
+ 
+ static
+ pthread_mutex_t mtx;
+@@ -88,13 +102,28 @@ static
+ void log_int_value(byte_array_t name, meas_record_lst_t meas_record)
+ {
+   if (cmp_str_ba("RRU.PrbTotDl", name) == 0) {
+-    printf("RRU.PrbTotDl = %d [PRBs]\n", meas_record.int_val);
++    printf("RRU.PrbTotDl = %u [PRBs]\n", meas_record.int_val);
+   } else if (cmp_str_ba("RRU.PrbTotUl", name) == 0) {
+-    printf("RRU.PrbTotUl = %d [PRBs]\n", meas_record.int_val);
++    printf("RRU.PrbTotUl = %u [PRBs]\n", meas_record.int_val);
+   } else if (cmp_str_ba("DRB.PdcpSduVolumeDL", name) == 0) {
+-    printf("DRB.PdcpSduVolumeDL = %d [kb]\n", meas_record.int_val);
++    printf("DRB.PdcpSduVolumeDL = %u [kb]\n", meas_record.int_val);
+   } else if (cmp_str_ba("DRB.PdcpSduVolumeUL", name) == 0) {
+-    printf("DRB.PdcpSduVolumeUL = %d [kb]\n", meas_record.int_val);
++    printf("DRB.PdcpSduVolumeUL = %u [kb]\n", meas_record.int_val);
++
++  } else if (cmp_str_ba("RSRP.Count", name) == 0) {
++    printf("RSRP.Count = %u\n", meas_record.int_val);
++  } else if (cmp_str_ba("N_PRB", name) == 0) {
++    printf("N_PRB = %u\n", meas_record.int_val);
++  } else if (cmp_str_ba("DRB.HarqMcsUl", name) == 0) {
++    printf("DRB.HarqMcsUl = %u\n", meas_record.int_val);
++    g_ul_mcs = meas_record.int_val;
++    g_has_ul_mcs = 1; 
++  } else if (cmp_str_ba("DRB.HarqMcsDl", name) == 0) {
++    printf("DRB.HarqMcsDl = %u\n", meas_record.int_val);
++  } else if (cmp_str_ba("CQI_SINGLE_CODEWORD", name) == 0) {
++    printf("CQI_SINGLE_CODEWORD = %u\n", meas_record.int_val);
++  } else if (cmp_str_ba("CQI_DUAL_CODEWORD", name) == 0) {
++    printf("CQI_DUAL_CODEWORD = %u\n", meas_record.int_val);
+   } else {
+     printf("Measurement Name not yet supported\n");
+   }
+@@ -109,6 +138,44 @@ void log_real_value(byte_array_t name, meas_record_lst_t meas_record)
+     printf("DRB.UEThpDl = %.2f [kbps]\n", meas_record.real_val);
+   } else if (cmp_str_ba("DRB.UEThpUl", name) == 0) {
+     printf("DRB.UEThpUl = %.2f [kbps]\n", meas_record.real_val);
++    g_ul_thp_kbps = meas_record.real_val;
++    g_has_ul_thp = 1;
++  } else if (cmp_str_ba("RSRP.Mean", name) == 0) {
++    printf("RSRP.Mean = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRP.Minimum", name) == 0) {
++    printf("RSRP.Minimum = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRP.Quartile1", name) == 0) {
++    printf("RSRP.Quartile1 = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRP.Median", name) == 0) {
++    printf("RSRP.Median = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRP.Quartile3", name) == 0) {
++    printf("RSRP.Quartile3 = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRP.Maximum", name) == 0) {
++    printf("RSRP.Maximum = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSSI", name) == 0) {
++    printf("RSSI = %.2f [dBm]\n", meas_record.real_val);
++  } else if (cmp_str_ba("RSRQ", name) == 0) {
++    printf("RSRQ = %.2f [dB]\n", meas_record.real_val);
++  } else if (cmp_str_ba("PUSCH_SNR", name) == 0) {
++    printf("PUSCH_SNR = %.2f [dB]\n", meas_record.real_val);
++  } else if (cmp_str_ba("PUCCH_SNR", name) == 0) {
++    printf("PUCCH_SNR = %.2f [dB]\n", meas_record.real_val);
++    g_ul_snr_db = meas_record.real_val;
++    g_has_ul_snr = 1;
++  } else if (cmp_str_ba("DRB.HarqBlockErrorRateUl", name) == 0) {
++    printf("DRB.HarqBlockErrorRateUl = %.2f [%%]\n", meas_record.real_val);
++    g_ul_bler_pct = meas_record.real_val;
++    g_has_ul_bler = 1;
++  } else if (cmp_str_ba("DRB.HarqBlockErrorRateDl", name) == 0) {
++    printf("DRB.HarqBlockErrorRateDl = %.2f [%%]\n", meas_record.real_val);
++  } else if (cmp_str_ba("DRB.MacSduRetransmissionRateUl", name) == 0) {
++    printf("DRB.MacSduRetransmissionRateUl = %.2f [%%]\n", meas_record.real_val);
++  } else if (cmp_str_ba("DRB.MacSduRetransmissionRateDl", name) == 0) {
++    printf("DRB.MacSduRetransmissionRateDl = %.2f [%%]\n", meas_record.real_val);
++  } else if (cmp_str_ba("DRB.MacSduErrorRateUl", name) == 0) {
++    printf("DRB.MacSduErrorRateUl = %.2f [%%]\n", meas_record.real_val);
++  } else if (cmp_str_ba("DRB.MacSduErrorRateDl", name) == 0) {
++    printf("DRB.MacSduErrorRateDl = %.2f [%%]\n", meas_record.real_val);
+   } else {
+     printf("Measurement Name not yet supported\n");
+   }
+@@ -193,11 +260,36 @@ void sm_cb_kpm(sm_ag_if_rd_t const* rd)
+       ue_id_e2sm_t const ue_id_e2sm = msg_frm_3->meas_report_per_ue[i].ue_meas_report_lst;
+       ue_id_e2sm_e const type = ue_id_e2sm.type;
+       log_ue_id_e2sm[type](ue_id_e2sm);
+-
++      g_has_ul_thp = g_has_ul_snr = g_has_ul_bler = g_has_ul_mcs = 0;
+       // log measurements
+       log_kpm_measurements(&msg_frm_3->meas_report_per_ue[i].ind_msg_format_1);
+-      
+-    }
++      // Clasificación para ESTE UE
++      const char* estado = "BUENO";
++// Clasificación agregada de la calidad del canal UL.
++// El estado se determina a partir de umbrales definidos sobre
++// throughput UL, SNR, MCS UL y BLER UL.
++      if ((g_has_ul_thp && g_ul_thp_kbps < 10000.0) ||
++          (g_has_ul_bler && g_ul_bler_pct > 2.0) ||
++          (g_has_ul_snr && g_ul_snr_db < 35.0) ||
++          (g_has_ul_mcs && g_ul_mcs < 20)) {
++        estado = "MALO";
++      } else if ((g_has_ul_thp && g_ul_thp_kbps >= 23000.0) &&
++                 (g_has_ul_snr && g_ul_snr_db >= 45.0) &&
++                 (g_has_ul_mcs && g_ul_mcs >= 26) &&
++                 (g_has_ul_bler && g_ul_bler_pct <= 1.0)) {
++        estado = "MUY BUENO";
++      }
++// Impresión del estado final del canal junto con las métricas
++
++      printf("Estado del canal: %s | THP_UL=%.2f kbps | SNR=%.2f dB | MCS_UL=%u | BLER_UL=%.2f%%\n",
++             estado, g_ul_thp_kbps, g_ul_snr_db, g_ul_mcs, g_ul_bler_pct);
++
++      if (strcmp(estado, "BUENO") == 0 || strcmp(estado, "MUY BUENO") == 0) {
++        printf("Plan de contingencia: No requerido.\n");
++      } else {
++        printf("Plan de contingencia: Revisar scheduler/QoS/transporte y condiciones de radio.\n");
++      }
++    }  
+     counter++;
+   }
+ }
+@@ -382,7 +474,7 @@ int main(int argc, char* argv[])
+ 
+   assert(nodes.len > 0);
+ 
+-  printf("Connected E2 nodes = %d\n", nodes.len);
++  printf("Connected E2 nodes = %u\n", nodes.len);
+ 
+   pthread_mutexattr_t attr = {0};
+   int rc = pthread_mutex_init(&mtx, &attr);

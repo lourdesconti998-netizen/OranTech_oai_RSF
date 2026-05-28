@@ -1,0 +1,90 @@
+#LEVANTAR OPEN5GS (10.45.0.1)
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/5G_Core_Network
+
+./run.sh
+
+tail -f  logs/amf.log
+
+#LEVANTAR GNB
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/Next_Generation_Node_B 
+
+./run.sh
+
+#LEVANTAR UE 1 (10.45.0.2)
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/User_Equipment
+
+./run.sh 
+
+#LEVANTAR RIC
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/RAN_Intelligent_Controllers/Flexible-RIC
+
+./run.sh
+
+#LEVANTAR XAPP DE MONITOREO
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/RAN_Intelligent_Controllers/Flexible-RIC/additional_scripts
+
+./start_grafana_with_csv_xapp_kpm_moni.sh
+
+#ENTRAR A GRAFANA
+
+http://localhost:3000
+
+
+#LEVANTAR UE 2 (10.45.0.3)
+
+cd /home/oran/O-RAN-Testbed-Automation/OpenAirInterface_Testbed/User_Equipment
+
+./run.sh 2
+
+# TRANSMITIR
+
+## Entrar al UE
+
+sudo ip netns exec ue1 bash
+sudo ip netns exec ue2 bash
+
+## Receptor
+
+iperf -s
+
+## Transmisor
+
+iperf -c IPreceptor -t 500 #máximo ancho de banda
+
+iperf -c IPreceptor -t 500 -b 5M #ancho de banda limitado
+
+
+# Transmitir entre UES
+
+*en el core
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo iptables -A FORWARD -i ogstun -o ogstun -j ACCEPT
+
+# Bajar archivo de internet
+
+*en el ue
+nano /etc/resolv.conf #agregar nameserver 8.8.8.8
+*en el core
+sudo iptables -A FORWARD -i ogstun -o wlxa86e84e27768 -j ACCEPT
+sudo iptables -A FORWARD -o ogstun -i wlxa86e84e27768 -j ACCEPT
+
+curl --interface 10.45.0.2 https://releases.ubuntu.com/25.10/ubuntu-25.10-desktop-amd64.iso -o descarga.iso
+
+wget --bind-address 10.45.0.2 https://releases.ubuntu.com/25.10/ubuntu-25.10-desktop-amd64.iso
+
+# RFSimulator
+
+telnet 127.0.0.1 60606
+
+help
+
+channelmod help
+
+channelmod show current
+
+channelmod modify 1 ploss 30
