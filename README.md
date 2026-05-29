@@ -175,7 +175,7 @@ Cuando no hay tráfico uplink activo, la xApp puede clasificar el enlace como `M
 ![Salida general de la xApp modificada](generico.jpg)
 ## Configuración del canal RFS
 
-Para realizar pruebas con el canal RFS, el nivel de ruido del canal se modifica desde los archivos de configuración del UE y del gNB. Es importante cambiar el valor en ambos archivos, ya que los dos componentes incluyen una definición del canal.
+Para realizar pruebas con el canal RFS modificado, el nivel de ruido del canal se modifica desde los archivos de configuración del UE y del gNB. Es importante cambiar el valor en ambos archivos, ya que los dos componentes incluyen una definición del canal.
 
 Los archivos a modificar son:
 
